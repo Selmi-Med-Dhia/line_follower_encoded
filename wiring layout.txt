@@ -1,0 +1,20 @@
+S1 = D15
+S2 = D12
+S3 = D13
+S4 = D14
+S5 = D25
+S6 = D26
+S7 = D27
+S8 = D35
+
+Pushbutton = D34
+
+Motor1a = D19
+Motor1b = D21
+Motor2a = D22
+Motor2b = D23
+
+encoder1A = 33
+encoder1B = 18
+encoder2A = 5
+encoder2B = 4

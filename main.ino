@@ -22,7 +22,7 @@ float ksE = 0.1;
 int previousErrorR = 0;
 int previousErrorL = 0;
 
-int maxSpeed = 200;
+int maxSpeed = 170;
 int minSpeed = 70;
 
 int rightCorrection, leftCorrection;
@@ -30,6 +30,7 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
+float full360 = 2.341;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
@@ -88,6 +89,7 @@ void IRAM_ATTR encoderLISR() {
 void speedRight(int speed){
   if (speed >0){
     analogWrite(motorRA, 0);
+
     analogWrite(motorRB, speed);
   }else{
     analogWrite(motorRB, 0);
@@ -105,14 +107,14 @@ void speedLeft(int speed){
   }
 }
 
-void setTargetL(int target){
-  targetL = target;
+void setTargetL(float nbrOfRotations){
+  targetL += (int)(nbrOfRotations*202);
   nbrOssilationsL = 0;
   previousValueL = 0;
   previousErrorL = 0;
 }
-void setTargetR(int target){
-  targetR = target;
+void setTargetR(float nbrOfRotations){
+  targetR += (int)(nbrOfRotations*202);
   nbrOssilationsR = 0;
   previousValueR = 0;
   previousErrorR = 0;
@@ -125,37 +127,30 @@ void setup() {
     pinMode(encoderLB, INPUT);
     pinMode(pushButton, INPUT);
 
-    Serial.begin(9600);
-
     attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
-    blind = true;
-    setTargetL(202);
-    setTargetR(-202);
 }
 
-void loop() {
-  if(blind){
-    /*
-    Serial.print(getEncoderCorrectionL());
-    Serial.print(" : ");
-    Serial.println(previousErrorL);
-    delay(10);
-    */
-    rightCorrection = getEncoderCorrectionR();
-    leftCorrection = getEncoderCorrectionL();
+void goToTargets(){
+  rightCorrection = getEncoderCorrectionR();
+  leftCorrection = getEncoderCorrectionL();
+  while(leftCorrection != 0 || rightCorrection != 0){
     speedRight(rightCorrection);
     speedLeft(leftCorrection);
     delayMicroseconds(1000);
-    if(leftCorrection == 0 && rightCorrection == 0){
-      speedRight(0);
-      speedLeft(0);
-      //blind = false;
-      setTargetL((-1)*targetL);
-      setTargetR((-1)*targetR);
-      delay(1000);
-    }
-  }else{
-    //PIDing with the black and white sensors
+    rightCorrection = getEncoderCorrectionR();
+    leftCorrection = getEncoderCorrectionL();
   }
+  speedRight(0);
+  speedLeft(0);
+}
+
+void loop() {
+  setTargetL(full360/2);
+  setTargetR(-full360/2);
+  delay(500);
+  goToTargets();
+  setTargetL(-full360/4);
+  setTargetR(full360/4);
+  goToTargets();
 }

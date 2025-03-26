@@ -30,14 +30,14 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
-float full360 = 2.341;
+float full360 = 2.345;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
   int value = (int)( ksE*( kpE*error + kdE*(error - previousErrorR) + kiE*(error + previousErrorR)) );
   if( (value > 0 && previousValueR <= 0) || (value < 0 && previousValueR >= 0)){
     nbrOssilationsR++;
-    if (nbrOssilationsR>5){
+    if (nbrOssilationsR>4){
       return (0);
     }
   }
@@ -58,7 +58,7 @@ int getEncoderCorrectionL(){
 
   if( (value > 0 && previousValueL <= 0) || (value < 0 && previousValueL >= 0)){
     nbrOssilationsL++;
-    if (nbrOssilationsL>5){
+    if (nbrOssilationsL>4){
       return (0);
     }
   }
@@ -87,7 +87,7 @@ void IRAM_ATTR encoderLISR() {
 }
 
 void speedRight(int speed){
-  if (speed >0){
+  if (speed >=0){
     analogWrite(motorRA, 0);
 
     analogWrite(motorRB, speed);
@@ -98,7 +98,7 @@ void speedRight(int speed){
 }
 
 void speedLeft(int speed){
-  if(speed >0){
+  if(speed >=0){
     analogWrite(motorLA, 0);
     analogWrite(motorLB, speed);
   }else{
@@ -127,6 +127,7 @@ void setup() {
     pinMode(encoderLB, INPUT);
     pinMode(pushButton, INPUT);
 
+    Serial.begin(115200);
     attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
 }
@@ -141,16 +142,27 @@ void goToTargets(){
     rightCorrection = getEncoderCorrectionR();
     leftCorrection = getEncoderCorrectionL();
   }
-  speedRight(0);
-  speedLeft(0);
+  stop();
 }
 
+void stop(){
+  for(int i = 0;i<3;i++){
+    speedRight(0);
+    speedLeft(0);
+    delay(10);
+  }
+}
 void loop() {
-  setTargetL(full360/2);
-  setTargetR(-full360/2);
-  delay(500);
+  setTargetL(full360);
+  setTargetR(-full360);
   goToTargets();
-  setTargetL(-full360/4);
-  setTargetR(full360/4);
+  delay(2000);
+  setTargetL(-full360/2);
+  setTargetR(full360/2);
   goToTargets();
+  delay(2000);
+  setTargetL(full360/4);
+  setTargetR(-full360/4);
+  goToTargets();
+  delay(2000);
 }

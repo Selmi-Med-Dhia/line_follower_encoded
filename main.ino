@@ -10,15 +10,26 @@ int encoderLA = 5;
 int encoderLB = 4;
 
 volatile int encoderRCount = 0;
+volatile int previousEncoderRCount = 0;
+volatile double speedR = 0;
+volatile unsigned long previousMeasureTimeR = 0;
 int targetR;
+double targetSpeedR = 200;
+float speedCorrectionR = 1.0;
+
 volatile int encoderLCount = 0;
+volatile int previousEncoderLCount = 0;
+volatile double speedL = 0;
+volatile unsigned long previousMeasureTimeL = 0;
 int targetL;
+double targetSpeedL = 200;
+float speedCorrectionL = 1.0;
 
 bool blind = false;
 float kpE = 1;
 float kiE = 2.5;
 float kdE = 3.0;
-float ksE = 0.1;
+float ksE = 0.08;
 int previousErrorR = 0;
 int previousErrorL = 0;
 
@@ -30,7 +41,7 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
-float full360 = 2.345;
+float full360 = 2.343;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
@@ -76,6 +87,10 @@ void IRAM_ATTR encoderRISR() {
   }else{
     encoderRCount++;
   }
+  unsigned long tmp = micros();
+  speedR = ( ( (double)(encoderRCount - previousEncoderRCount)*(60000000/202) ) / (tmp - previousMeasureTimeR) );
+  previousEncoderRCount = encoderRCount;
+  previousMeasureTimeR = tmp;
 }
 
 void IRAM_ATTR encoderLISR() {
@@ -84,8 +99,11 @@ void IRAM_ATTR encoderLISR() {
   }else{
     encoderLCount--;
   }
+  unsigned long tmp = micros();
+  speedL = ( ( (double)(encoderLCount - previousEncoderLCount)*(60000000/202) ) / (tmp - previousMeasureTimeL) );
+  previousEncoderLCount = encoderLCount;
+  previousMeasureTimeL = tmp;
 }
-
 void speedRight(int speed){
   if (speed >=0){
     analogWrite(motorRA, 0);
@@ -130,17 +148,34 @@ void setup() {
     Serial.begin(115200);
     attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
+    delay(500);
+    setTargetR(20);
+    setTargetL(20);
+    goToTargets();
 }
 
-void goToTargets(){
+void goToTargets(double targetSpeedRight, double targetSpeedLeft){
+  targetSpeedR = targetSpeedRight;
+  targetSpeedL = targetSpeedLeft;
   rightCorrection = getEncoderCorrectionR();
   leftCorrection = getEncoderCorrectionL();
   while(leftCorrection != 0 || rightCorrection != 0){
-    speedRight(rightCorrection);
-    speedLeft(leftCorrection);
+    if (abs(encoderRCount - targetR) > 20){
+      speedCorrectionR += (targetSpeedR - abs(speedR))*0.0004;
+    }else{
+      speedCorrectionR = 1;
+    }
+    if (abs(encoderLCount - targetL) > 20){
+      speedCorrectionL += (targetSpeedL - abs(speedL))*0.0004;
+    }else{
+      speedCorrectionL = 1;
+    }
+    speedRight(speedCorrectionR*rightCorrection);
+    speedLeft(speedCorrectionL*leftCorrection);
     delayMicroseconds(1000);
     rightCorrection = getEncoderCorrectionR();
     leftCorrection = getEncoderCorrectionL();
+    Serial.println(speedL);
   }
   stop();
 }
@@ -151,18 +186,22 @@ void stop(){
     speedLeft(0);
     delay(10);
   }
+  speedR = 0;
+  speedL = 0;
 }
 void loop() {
-  setTargetL(full360);
-  setTargetR(-full360);
+  /*
+  setTargetL(6);
+  setTargetR(6);
   goToTargets();
-  delay(2000);
-  setTargetL(-full360/2);
-  setTargetR(full360/2);
+  delay(1000);
+  setTargetL(full360/2);
+  setTargetR(-full360/2);
   goToTargets();
-  delay(2000);
-  setTargetL(full360/4);
-  setTargetR(-full360/4);
+  delay(1000);
+  setTargetL(6);
+  setTargetR(6);
   goToTargets();
-  delay(2000);
+  delay(2000000);
+  */
 }

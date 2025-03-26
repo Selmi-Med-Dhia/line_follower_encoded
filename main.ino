@@ -41,14 +41,14 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
-float full360 = 2.343;
+float full360 = 2.37;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
   int value = (int)( ksE*( kpE*error + kdE*(error - previousErrorR) + kiE*(error + previousErrorR)) );
   if( (value > 0 && previousValueR <= 0) || (value < 0 && previousValueR >= 0)){
     nbrOssilationsR++;
-    if (nbrOssilationsR>4){
+    if (nbrOssilationsR>6){
       return (0);
     }
   }
@@ -69,7 +69,7 @@ int getEncoderCorrectionL(){
 
   if( (value > 0 && previousValueL <= 0) || (value < 0 && previousValueL >= 0)){
     nbrOssilationsL++;
-    if (nbrOssilationsL>4){
+    if (nbrOssilationsL>6){
       return (0);
     }
   }
@@ -148,10 +148,10 @@ void setup() {
     Serial.begin(115200);
     attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
-    delay(500);
-    setTargetR(20);
-    setTargetL(20);
-    goToTargets();
+    while(digitalRead(pushButton) == 0){
+      delay(1);
+    }
+    delay(300);
 }
 
 void goToTargets(double targetSpeedRight, double targetSpeedLeft){
@@ -159,6 +159,8 @@ void goToTargets(double targetSpeedRight, double targetSpeedLeft){
   targetSpeedL = targetSpeedLeft;
   rightCorrection = getEncoderCorrectionR();
   leftCorrection = getEncoderCorrectionL();
+  speedCorrectionR = 1;
+  speedCorrectionL = 1;
   while(leftCorrection != 0 || rightCorrection != 0){
     if (abs(encoderRCount - targetR) > 20){
       speedCorrectionR += (targetSpeedR - abs(speedR))*0.0004;
@@ -175,7 +177,6 @@ void goToTargets(double targetSpeedRight, double targetSpeedLeft){
     delayMicroseconds(1000);
     rightCorrection = getEncoderCorrectionR();
     leftCorrection = getEncoderCorrectionL();
-    Serial.println(speedL);
   }
   stop();
 }
@@ -190,18 +191,21 @@ void stop(){
   speedL = 0;
 }
 void loop() {
-  /*
-  setTargetL(6);
-  setTargetR(6);
-  goToTargets();
-  delay(1000);
+  setTargetL(4);
+  setTargetR(4);
+  goToTargets(150,150);
+  delay(200);
   setTargetL(full360/2);
   setTargetR(-full360/2);
-  goToTargets();
-  delay(1000);
-  setTargetL(6);
-  setTargetR(6);
-  goToTargets();
-  delay(2000000);
-  */
+  goToTargets(200,200);
+  delay(200);
+  setTargetL(4);
+  setTargetR(4);
+  goToTargets(150,150);
+  delay(200);
+  setTargetL(-full360/2);
+  setTargetR(full360/2);
+  goToTargets(200,200);
+  delay(10000);
+
 }

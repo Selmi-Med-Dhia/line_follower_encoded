@@ -41,7 +41,7 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
-float full360 = 2.344;
+float full360 = 2.35;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
@@ -154,6 +154,23 @@ void setup() {
     delay(300);
 }
 
+void turn(float degree){
+  setTargetR(full360*(degree/360));
+  setTargetL(full360*(degree/-360));
+
+  rightCorrection = getEncoderCorrectionR();
+  leftCorrection = getEncoderCorrectionL();
+
+  while(leftCorrection != 0 || rightCorrection != 0){
+    speedRight(rightCorrection);
+    speedLeft(leftCorrection);
+    delayMicroseconds(1000);
+    rightCorrection = getEncoderCorrectionR();
+    leftCorrection = getEncoderCorrectionL();
+  }
+  stop();
+}
+
 void goToTargets(double targetSpeedRight, double targetSpeedLeft){
   rightCorrection = getEncoderCorrectionR();
   leftCorrection = getEncoderCorrectionL();
@@ -187,10 +204,10 @@ void goToTargets(double targetSpeedRight, double targetSpeedLeft){
     //breaking
     if (breaking == false){
       timeLeft = max( ( ( (float)abs(targetR-encoderRCount)/202 )/targetSpeedRight )*60000, ( ( (float)abs(targetL-encoderLCount)/202 )/targetSpeedLeft )*60000 );
-      if(timeLeft < rampLength*( (float)max(targetSpeedLeft, targetSpeedRight)/600 ) ){
+      if(timeLeft < rampLength*( (float)max(targetSpeedLeft, targetSpeedRight)/1000 ) ){
         breaking = true;
-        stepR = stepR/( (float)max(targetSpeedLeft, targetSpeedRight)/600 );
-        stepL = stepL/( (float)max(targetSpeedLeft, targetSpeedRight)/600 );
+        stepR = stepR/( (float)max(targetSpeedLeft, targetSpeedRight)/1000 );
+        stepL = stepL/( (float)max(targetSpeedLeft, targetSpeedRight)/1000 );
       }
     }else{
       targetSpeedR = max( 85.0, targetSpeedR - stepR);
@@ -232,18 +249,8 @@ void stop(){
 void loop() {
   setTargetL(4);
   setTargetR(4);
-  goToTargets(300,300);
+  goToTargets(400,400);
   delay(200);
-  setTargetL(full360/2);
-  setTargetR(-full360/2);
-  goToTargets(200,200);
+  turn(94);
   delay(200);
-  setTargetL(4);
-  setTargetR(4);
-  goToTargets(300,300);
-  delay(200);
-  setTargetL(-full360/2);
-  setTargetR(full360/2);
-  goToTargets(200,200);
-  delay(10000);
 }

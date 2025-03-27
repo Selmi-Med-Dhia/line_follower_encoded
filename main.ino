@@ -41,7 +41,7 @@ int nbrOssilationsL = 0;
 int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
-float full360 = 2.37;
+float full360 = 2.344;
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
@@ -155,28 +155,67 @@ void setup() {
 }
 
 void goToTargets(double targetSpeedRight, double targetSpeedLeft){
-  targetSpeedR = targetSpeedRight;
-  targetSpeedL = targetSpeedLeft;
   rightCorrection = getEncoderCorrectionR();
   leftCorrection = getEncoderCorrectionL();
   speedCorrectionR = 1;
   speedCorrectionL = 1;
+
+  int i = 0;
+  int rampLength = min(1200, (int)(max( ( ( (float)abs(targetR-encoderRCount)/202 )/targetSpeedRight )*60000, ( ( (float)abs(targetL-encoderLCount)/202 )/targetSpeedLeft )*60000 ) /1.0) );
+  float stepR = (float)(targetSpeedRight-40)/rampLength;
+  float stepL = (float)(targetSpeedLeft-40)/rampLength;
+  targetSpeedR = 40 - stepR*10;
+  targetSpeedL = 40 - stepL*10;
+  
+  bool breaking = false;
+  double timeLeft;
+
   while(leftCorrection != 0 || rightCorrection != 0){
+    //ramping
+    if (i <= rampLength){
+      if (i%10 == 0){
+        targetSpeedR += stepR*10;
+        targetSpeedL += stepL*10;
+      }
+      i++;
+      if (i>rampLength && abs(targetSpeedLeft - targetSpeedL) < 12 && abs(targetSpeedRight - targetSpeedR) < 12){
+        targetSpeedR = targetSpeedRight;
+        targetSpeedL = targetSpeedLeft;
+      }
+    }
+    
+    //breaking
+    if (breaking == false){
+      timeLeft = max( ( ( (float)abs(targetR-encoderRCount)/202 )/targetSpeedRight )*60000, ( ( (float)abs(targetL-encoderLCount)/202 )/targetSpeedLeft )*60000 );
+      if(timeLeft < rampLength*( (float)max(targetSpeedLeft, targetSpeedRight)/600 ) ){
+        breaking = true;
+        stepR = stepR/( (float)max(targetSpeedLeft, targetSpeedRight)/600 );
+        stepL = stepL/( (float)max(targetSpeedLeft, targetSpeedRight)/600 );
+      }
+    }else{
+      targetSpeedR = max( 85.0, targetSpeedR - stepR);
+      targetSpeedL = max( 85.0, targetSpeedL - stepL);
+    }
+
+    //speed control
     if (abs(encoderRCount - targetR) > 20){
-      speedCorrectionR += (targetSpeedR - abs(speedR))*0.0004;
+      speedCorrectionR = max ( 0.2 , speedCorrectionR + (targetSpeedR - abs(speedR))*0.0004 );
     }else{
       speedCorrectionR = 1;
     }
     if (abs(encoderLCount - targetL) > 20){
-      speedCorrectionL += (targetSpeedL - abs(speedL))*0.0004;
+      speedCorrectionL = max ( 0.2 , speedCorrectionL + (targetSpeedL - abs(speedL))*0.0004 );
     }else{
       speedCorrectionL = 1;
     }
+
+    //position control
     speedRight(speedCorrectionR*rightCorrection);
     speedLeft(speedCorrectionL*leftCorrection);
     delayMicroseconds(1000);
     rightCorrection = getEncoderCorrectionR();
     leftCorrection = getEncoderCorrectionL();
+    //Serial.println(targetSpeedL);
   }
   stop();
 }
@@ -193,7 +232,7 @@ void stop(){
 void loop() {
   setTargetL(4);
   setTargetR(4);
-  goToTargets(150,150);
+  goToTargets(300,300);
   delay(200);
   setTargetL(full360/2);
   setTargetR(-full360/2);
@@ -201,11 +240,10 @@ void loop() {
   delay(200);
   setTargetL(4);
   setTargetR(4);
-  goToTargets(150,150);
+  goToTargets(300,300);
   delay(200);
   setTargetL(-full360/2);
   setTargetR(full360/2);
   goToTargets(200,200);
   delay(10000);
-
 }

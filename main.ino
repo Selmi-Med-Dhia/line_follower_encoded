@@ -1,4 +1,4 @@
-int sensors[8] = {15, 12, 13, 14, 25, 26, 27, 35};
+int sensors[8] = {35, 27, 26, 25, 14, 13, 12, 15};
 int pushButton = 34;
 int motorRA = 21;
 int motorRB = 19;
@@ -12,26 +12,36 @@ int encoderLB = 4;
 volatile int encoderRCount = 0;
 volatile int previousEncoderRCount = 0;
 volatile double speedR = 0;
+volatile int currentVoltageR = 100;
+double previousSpeedErrorR = 0;
+double newErrorR;
 volatile unsigned long previousMeasureTimeR = 0;
 int targetR;
-double targetSpeedR = 200;
+double targetSpeedR = 400;
 float speedCorrectionR = 1.0;
 
 volatile int encoderLCount = 0;
 volatile int previousEncoderLCount = 0;
 volatile double speedL = 0;
+volatile int currentVoltageL = 100;
+double previousSpeedErrorL = 0;
+double newErrorL;
 volatile unsigned long previousMeasureTimeL = 0;
 int targetL;
-double targetSpeedL = 200;
+double targetSpeedL = 400;
 float speedCorrectionL = 1.0;
 
-bool blind = false;
 float kpE = 1;
 float kiE = 2.5;
 float kdE = 3.0;
 float ksE = 0.08;
 int previousErrorR = 0;
 int previousErrorL = 0;
+
+float kpS = 1;
+float kiS = 1;
+float kdS = 1;
+float ksS = 1;
 
 int maxSpeed = 170;
 int minSpeed = 70;
@@ -42,6 +52,40 @@ int previousValueL = 0;
 int nbrOssilationsR = 0;
 int previousValueR = 0;
 float full360 = 2.35;
+
+int weights[8] = {-100,-9,-6,-5,5,6,9,100};
+int oldSums[8] = {0,0,0,0,0};
+int threashhold[8];
+float kp = 1;
+float kd = 0.33;
+float ki = 0;
+float ks = 2;
+bool blackOnWhite = true;
+float tmp;
+
+float getPIDValue(){
+  int sum = 0;
+  for(int j=0; j<4; j++){
+    for(int i=0; i<8; i++){
+      sum += getValue(i) * weights[i];
+    }
+    delayMicroseconds(10);
+  }
+  float value =    kp*sum   +    kd*(sum - oldSums[4])   +  ki*(sum + oldSums[4]);
+  for(int i=1;i<4; i++){
+    oldSums[i] = oldSums[i-1];
+  }
+  oldSums[0] = sum;
+  return ks*value;
+}
+
+int getValue(int sensor){
+  if(blackOnWhite){
+    return( analogRead(sensors[sensor]) > threashhold[sensor]);
+  }else{
+    return( analogRead(sensors[sensor]) < threashhold[sensor]);
+  }
+}
 
 int getEncoderCorrectionR(){
   int error = targetR - encoderRCount;
@@ -138,22 +182,6 @@ void setTargetR(float nbrOfRotations){
   previousErrorR = 0;
 }
 
-void setup() {
-    pinMode(encoderRA, INPUT);
-    pinMode(encoderRB, INPUT);
-    pinMode(encoderLA, INPUT);
-    pinMode(encoderLB, INPUT);
-    pinMode(pushButton, INPUT);
-
-    Serial.begin(115200);
-    attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
-    while(digitalRead(pushButton) == 0){
-      delay(1);
-    }
-    delay(300);
-}
-
 void turn(float degree){
   setTargetR(full360*(degree/360));
   setTargetL(full360*(degree/-360));
@@ -246,6 +274,23 @@ void stop(){
   speedR = 0;
   speedL = 0;
 }
+
+void setup() {
+    pinMode(encoderRA, INPUT);
+    pinMode(encoderRB, INPUT);
+    pinMode(encoderLA, INPUT);
+    pinMode(encoderLB, INPUT);
+    pinMode(pushButton, INPUT);
+
+    Serial.begin(115200);
+    attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
+    while(digitalRead(pushButton) == 0){
+      delay(1);
+    }
+    delay(300);
+}
+
 void loop() {
   setTargetL(4);
   setTargetR(4);
@@ -253,4 +298,20 @@ void loop() {
   delay(200);
   turn(94);
   delay(200);
+}
+//sensor PID along with speed control
+void loop(){
+  tmp = getPIDValue();
+  targetSpeedR = max(-600, min( 600, targetSpeedR + tmp) );
+  targetSpeedL = max(-600, min( 600, targetSpeedL - tmp) );
+
+  newErrorR = speedR - targetSpeedR;
+  currentVoltageR -= (int)( ksS*( kpS*newErrorR + kdS*(newErrorR - previousSpeedErrorR) + kiS*(newErrorR + previousSpeedErrorR) ) );
+  currentVoltageL -= (int)( ksS*( kpS*newErrorL + kdS*(newErrorL - previousSpeedErrorL + kiS*(newErrorL+ previousSpeedErrorL) ) );
+  currentVoltageR = max(-255, min(255, currentVoltageR) );
+  currentVoltageL = max(-255, min(255, currentVoltageL) );
+  speedRight(currentVoltageR);
+  speedLeft(currentVoltageL);
+  previousSpeedErrorR = newErrorR;
+  previousSpeedErrorL = newErrorL;
 }

@@ -12,7 +12,7 @@ int encoderLB = 4;
 volatile int encoderRCount = 0;
 volatile int previousEncoderRCount = 0;
 volatile double speedR = 0;
-volatile int currentVoltageR = 100;
+int currentVoltageR = 100;
 double previousSpeedErrorR = 0;
 double newErrorR;
 volatile unsigned long previousMeasureTimeR = 0;
@@ -23,7 +23,7 @@ float speedCorrectionR = 1.0;
 volatile int encoderLCount = 0;
 volatile int previousEncoderLCount = 0;
 volatile double speedL = 0;
-volatile int currentVoltageL = 100;
+int currentVoltageL = 100;
 double previousSpeedErrorL = 0;
 double newErrorL;
 volatile unsigned long previousMeasureTimeL = 0;
@@ -38,10 +38,10 @@ float ksE = 0.08;
 int previousErrorR = 0;
 int previousErrorL = 0;
 
-float kpS = 1;
-float kiS = 1;
-float kdS = 1;
-float ksS = 1;
+float kpS = 0.3;
+float kiS = 0.02;
+float kdS = 0.05;
+float ksS = 0.13;
 
 int maxSpeed = 170;
 int minSpeed = 70;
@@ -53,15 +53,16 @@ int nbrOssilationsR = 0;
 int previousValueR = 0;
 float full360 = 2.35;
 
-int weights[8] = {-100,-9,-6,-5,5,6,9,100};
+int weights[8] = {-250,-60,-6,-5,5,60,250};
 int oldSums[8] = {0,0,0,0,0};
-int threashhold[8];
+int threashholds[8] = {0,0,0,0,0,0,0,0};
 float kp = 1;
 float kd = 0.33;
 float ki = 0;
-float ks = 2;
+float ks = 0.3;
 bool blackOnWhite = true;
 float tmp;
+int baseRPM = 200;
 
 float getPIDValue(){
   int sum = 0;
@@ -81,9 +82,9 @@ float getPIDValue(){
 
 int getValue(int sensor){
   if(blackOnWhite){
-    return( analogRead(sensors[sensor]) > threashhold[sensor]);
+    return( analogRead(sensors[sensor]) > threashholds[sensor]);
   }else{
-    return( analogRead(sensors[sensor]) < threashhold[sensor]);
+    return( analogRead(sensors[sensor]) < threashholds[sensor]);
   }
 }
 
@@ -131,10 +132,12 @@ void IRAM_ATTR encoderRISR() {
   }else{
     encoderRCount++;
   }
-  unsigned long tmp = micros();
-  speedR = ( ( (double)(encoderRCount - previousEncoderRCount)*(60000000/202) ) / (tmp - previousMeasureTimeR) );
-  previousEncoderRCount = encoderRCount;
-  previousMeasureTimeR = tmp;
+  if(encoderRCount%2){
+    unsigned long tmp = micros();
+    speedR = ( ( (double)(encoderRCount - previousEncoderRCount)*(60000000/202) ) / (tmp - previousMeasureTimeR) );
+    previousEncoderRCount = encoderRCount;
+    previousMeasureTimeR = tmp;
+  }
 }
 
 void IRAM_ATTR encoderLISR() {
@@ -143,11 +146,45 @@ void IRAM_ATTR encoderLISR() {
   }else{
     encoderLCount--;
   }
-  unsigned long tmp = micros();
-  speedL = ( ( (double)(encoderLCount - previousEncoderLCount)*(60000000/202) ) / (tmp - previousMeasureTimeL) );
-  previousEncoderLCount = encoderLCount;
-  previousMeasureTimeL = tmp;
+  if(encoderLCount%2){
+    unsigned long tmp = micros();
+    speedL = ( ( (double)(encoderLCount - previousEncoderLCount)*(60000000/202) ) / (tmp - previousMeasureTimeL) );
+    previousEncoderLCount = encoderLCount;
+    previousMeasureTimeL = tmp;
+  }
 }
+
+void calibrate(){
+  setTargetR(full360*3);
+  setTargetL(-full360*3);
+  int min[8] = {4000,4000,4000,4000,4000,4000,4000,4000};
+  int reading;
+  rightCorrection = getEncoderCorrectionR();
+  leftCorrection = getEncoderCorrectionL();
+
+  while(leftCorrection != 0 || rightCorrection != 0){
+    for(int i=0;i<8;i++){
+      reading = analogRead(sensors[i]);
+      if(min[i] > reading ){
+        min[i] = reading;
+      }
+      if(threashholds[i] < reading ){
+        threashholds[i] = reading;
+      }
+    }
+
+    speedRight(rightCorrection);
+    speedLeft(leftCorrection);
+    delayMicroseconds(1000);
+    rightCorrection = getEncoderCorrectionR();
+    leftCorrection = getEncoderCorrectionL();
+  }
+  stop();
+  for(int i=0;i<8;i++){
+    threashholds[i] = (threashholds[i] + min[i])/2 ;
+  }
+}
+
 void speedRight(int speed){
   if (speed >=0){
     analogWrite(motorRA, 0);
@@ -276,20 +313,31 @@ void stop(){
 }
 
 void setup() {
-    pinMode(encoderRA, INPUT);
-    pinMode(encoderRB, INPUT);
-    pinMode(encoderLA, INPUT);
-    pinMode(encoderLB, INPUT);
-    pinMode(pushButton, INPUT);
+  pinMode(encoderRA, INPUT);
+  pinMode(encoderRB, INPUT);
+  pinMode(encoderLA, INPUT);
+  pinMode(encoderLB, INPUT);
+  pinMode(pushButton, INPUT);
 
-    Serial.begin(115200);
-    attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
-    while(digitalRead(pushButton) == 0){
-      delay(1);
-    }
-    delay(300);
+  Serial.begin(115200);
+  attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
+
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
+  delay(1000);
+  digitalWrite(2, LOW);
+
+  Serial.println(1);
+  calibrate();
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
+  delay(2000);
+  digitalWrite(2, LOW);
+  
+  Serial.println(15);
 }
+/*
 
 void loop() {
   setTargetL(4);
@@ -299,15 +347,19 @@ void loop() {
   turn(94);
   delay(200);
 }
-//sensor PID along with speed control
+*/
 void loop(){
   tmp = getPIDValue();
-  targetSpeedR = max(-600, min( 600, targetSpeedR + tmp) );
-  targetSpeedL = max(-600, min( 600, targetSpeedL - tmp) );
+  targetSpeedR = max(-570.0f, min( 570.0f, baseRPM - tmp) );
+  targetSpeedL = max(-570.0f, min( 570.0f, baseRPM + tmp) );
+  Serial.print(targetSpeedL);
+  Serial.print(" : ");
+  Serial.println(targetSpeedR);
 
   newErrorR = speedR - targetSpeedR;
+  newErrorL = speedL - targetSpeedL;
   currentVoltageR -= (int)( ksS*( kpS*newErrorR + kdS*(newErrorR - previousSpeedErrorR) + kiS*(newErrorR + previousSpeedErrorR) ) );
-  currentVoltageL -= (int)( ksS*( kpS*newErrorL + kdS*(newErrorL - previousSpeedErrorL + kiS*(newErrorL+ previousSpeedErrorL) ) );
+  currentVoltageL -= (int)( ksS*( kpS*newErrorL + kdS*(newErrorL - previousSpeedErrorL + kiS*(newErrorL+ previousSpeedErrorL) ) ) );
   currentVoltageR = max(-255, min(255, currentVoltageR) );
   currentVoltageL = max(-255, min(255, currentVoltageL) );
   speedRight(currentVoltageR);

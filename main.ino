@@ -1,3 +1,5 @@
+#define PI 3.14159265358979323846
+
 int sensors[8] = {35, 27, 26, 25, 14, 13, 12, 15};
 int pushButton = 34;
 int motorRA = 21;
@@ -17,7 +19,8 @@ double previousSpeedErrorR = 0;
 double newErrorR;
 volatile unsigned long previousMeasureTimeR = 0;
 int targetR;
-double targetSpeedR = 400;
+double targetSpeedR = 100;
+double previousTargetSpeedR = 100;
 float speedCorrectionR = 1.0;
 
 volatile int encoderLCount = 0;
@@ -28,7 +31,8 @@ double previousSpeedErrorL = 0;
 double newErrorL;
 volatile unsigned long previousMeasureTimeL = 0;
 int targetL;
-double targetSpeedL = 400;
+double targetSpeedL = 100;
+double previousTargetSpeedL = 100;
 float speedCorrectionL = 1.0;
 
 float kpE = 1;
@@ -53,7 +57,11 @@ int nbrOssilationsR = 0;
 int previousValueR = 0;
 float full360 = 2.35;
 
-int weights[8] = {-250,-60,-6,-5,5,60,250};
+int weights[8] = {-700,-50,-20,-15,15,20,50,700};
+
+int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
+int weights170[8] = {-180,-50,-12,-10,10,12,50,180};
+
 int oldSums[8] = {0,0,0,0,0};
 int threashholds[8] = {0,0,0,0,0,0,0,0};
 float kp = 1;
@@ -62,13 +70,13 @@ float ki = 0;
 float ks = 0.3;
 bool blackOnWhite = true;
 float tmp;
-int baseRPM = 200;
+int baseRPM = 300;
 
 float getPIDValue(){
   int sum = 0;
-  for(int j=0; j<4; j++){
+  for(int j=0; j<1; j++){
     for(int i=0; i<8; i++){
-      sum += getValue(i) * weights[i];
+      sum += getValue(i) * weights[i] * 4;
     }
     delayMicroseconds(10);
   }
@@ -318,43 +326,44 @@ void setup() {
   pinMode(encoderLA, INPUT);
   pinMode(encoderLB, INPUT);
   pinMode(pushButton, INPUT);
+  pinMode(2, OUTPUT);
 
   Serial.begin(115200);
   attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
 
-  pinMode(2, OUTPUT);
   digitalWrite(2, HIGH);
-  delay(1000);
-  digitalWrite(2, LOW);
+  
+  goToTargets(250, 250);
+  while(1){};
 
-  Serial.println(1);
   calibrate();
-  pinMode(2, OUTPUT);
-  digitalWrite(2, HIGH);
+  encoderRCount = 0;
+  encoderLCount = 0;
   delay(2000);
   digitalWrite(2, LOW);
   
-  Serial.println(15);
 }
-/*
 
-void loop() {
-  setTargetL(4);
-  setTargetR(4);
-  goToTargets(400,400);
-  delay(200);
-  turn(94);
-  delay(200);
-}
-*/
 void loop(){
   tmp = getPIDValue();
   targetSpeedR = max(-570.0f, min( 570.0f, baseRPM - tmp) );
   targetSpeedL = max(-570.0f, min( 570.0f, baseRPM + tmp) );
-  Serial.print(targetSpeedL);
-  Serial.print(" : ");
-  Serial.println(targetSpeedR);
+  
+  //jumping to speed
+  if(targetSpeedR != previousTargetSpeedR){
+    currentVoltageR = (targetSpeedR / previousTargetSpeedR) * currentVoltageR;
+    currentVoltageL = (targetSpeedL / previousTargetSpeedL) * currentVoltageL;
+    speedRight(currentVoltageR);
+    speedLeft(currentVoltageL);
+    delay(1);
+    previousTargetSpeedL = targetSpeedL;
+    previousTargetSpeedR = targetSpeedR;
+  }
+
+  //Serial.print(speedL);
+  //Serial.print(" : ");
+  //Serial.println(speedR);
 
   newErrorR = speedR - targetSpeedR;
   newErrorL = speedL - targetSpeedL;
@@ -366,4 +375,21 @@ void loop(){
   speedLeft(currentVoltageL);
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
+
+  if( abs(encoderRCount - 202.0*( 1200.0 / (66.0*3.14) ) ) < 20 ){
+    digitalWrite(2, HIGH);
+    baseRPM = 170;
+    for(int i=0;i<8; i++){
+      weights[i] = weights170[i];
+      Serial.println("haw tbaddel");
+    }
+  }
+  if( abs(encoderRCount - 202.0*( 2350.0 / (66.0*3.14) ) ) < 20 ){
+    digitalWrite(2, LOW);
+    baseRPM = 300;
+    for(int i=0;i<8; i++){
+      weights[i] = weights300[i];
+      Serial.println("haw tbaddel");
+    }
+  }
 }

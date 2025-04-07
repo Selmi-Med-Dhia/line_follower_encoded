@@ -38,7 +38,7 @@ float speedCorrectionL = 1.0;
 float kpE = 1;
 float kiE = 2.5;
 float kdE = 3.0;
-float ksE = 0.08;
+float ksE = 0.1;
 int previousErrorR = 0;
 int previousErrorL = 0;
 
@@ -57,10 +57,14 @@ int nbrOssilationsR = 0;
 int previousValueR = 0;
 float full360 = 2.35;
 
-int weights[8] = {-700,-50,-20,-15,15,20,50,700};
+int weightsPreferingRight[8] = {-200,-20,-10,-10,10,160,180,500};
+
+int weights[8] = {-200,-20,-10,-10,10,160,180,500};
 
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
 int weights170[8] = {-180,-50,-12,-10,10,12,50,180};
+
+bool flags[10] = { false, false, false, false, false, false, false, false, false, false};
 
 int oldSums[8] = {0,0,0,0,0};
 int threashholds[8] = {0,0,0,0,0,0,0,0};
@@ -70,7 +74,7 @@ float ki = 0;
 float ks = 0.3;
 bool blackOnWhite = true;
 float tmp;
-int baseRPM = 300;
+int baseRPM = 160;
 
 float getPIDValue(){
   int sum = 0;
@@ -331,21 +335,44 @@ void setup() {
   Serial.begin(115200);
   attachInterrupt(digitalPinToInterrupt(encoderRA), encoderRISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
-
-  digitalWrite(2, HIGH);
   
-  goToTargets(250, 250);
-  while(1){};
-
-  calibrate();
   encoderRCount = 0;
   encoderLCount = 0;
+  digitalWrite(2, HIGH);
+  calibrate();
   delay(2000);
   digitalWrite(2, LOW);
-  
+  setTargetL( ( 400.0 / (66.0*3.14) ) );
+  setTargetR( ( 400.0 / (66.0*3.14) ) );
+  goToTargets(400,400);
+  /*
+  delay(3000);
+  setTargetL( ( 630.0 / (66.0*3.14) ) );
+  setTargetR( ( 630.0 / (66.0*3.14) ) );
+  goToTargets(300,300);
+  turn(-94);
+  setTargetL( ( 280.0 / (66.0*3.14) ) );
+  setTargetR( ( 280.0 / (66.0*3.14) ) );
+  goToTargets(150,150);
+  turn(-94);
+  setTargetL( ( 260.0 / (66.0*3.14) ) );
+  setTargetR( ( 260.0 / (66.0*3.14) ) );
+  goToTargets(150,150);
+  turn(94);
+  setTargetL( ( 360.0 / (66.0*3.14) ) );
+  setTargetR( ( 360.0 / (66.0*3.14) ) );
+  goToTargets(300,300);
+  turn(-94);
+  setTargetL( ( 270.0 / (66.0*3.14) ) );
+  setTargetR( ( 270.0 / (66.0*3.14) ) );
+  goToTargets(150,150);
+  turn(46);
+  */
 }
 
 void loop(){
+  //Serial.println(encoderLCount - encoderRCount);
+
   tmp = getPIDValue();
   targetSpeedR = max(-570.0f, min( 570.0f, baseRPM - tmp) );
   targetSpeedL = max(-570.0f, min( 570.0f, baseRPM + tmp) );
@@ -361,10 +388,6 @@ void loop(){
     previousTargetSpeedR = targetSpeedR;
   }
 
-  //Serial.print(speedL);
-  //Serial.print(" : ");
-  //Serial.println(speedR);
-
   newErrorR = speedR - targetSpeedR;
   newErrorL = speedL - targetSpeedL;
   currentVoltageR -= (int)( ksS*( kpS*newErrorR + kdS*(newErrorR - previousSpeedErrorR) + kiS*(newErrorR + previousSpeedErrorR) ) );
@@ -376,7 +399,25 @@ void loop(){
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
 
-  if( abs(encoderRCount - 202.0*( 1200.0 / (66.0*3.14) ) ) < 20 ){
+  if( !flags[0] && (encoderLCount - encoderRCount) > (-2310) ){
+    baseRPM = 150;
+    digitalWrite(2, HIGH);
+    for(int i=0;i<8;i++){
+      weights[i] = weightsPreferingRight[7-i];
+    }
+    weights[3] = 500;
+    flags[0] = true;
+  }
+  /*
+  if ( flags[0] && !flags[1] && (encoderLCount - encoderRCount) < (full360/2)*202 ){
+    digitalWrite(2, LOW);
+    for(int i=0;i<8;i++){
+      weights[i] = weights[-i];
+    }
+    flags[1] = true;
+  }
+  /*
+  if( abs(encoderRCount - 202.0*( .0 / (66.0*3.14) ) ) < 20 ){
     digitalWrite(2, HIGH);
     baseRPM = 170;
     for(int i=0;i<8; i++){
@@ -384,6 +425,7 @@ void loop(){
       Serial.println("haw tbaddel");
     }
   }
+  /*
   if( abs(encoderRCount - 202.0*( 2350.0 / (66.0*3.14) ) ) < 20 ){
     digitalWrite(2, LOW);
     baseRPM = 300;
@@ -392,4 +434,5 @@ void loop(){
       Serial.println("haw tbaddel");
     }
   }
+  */
 }

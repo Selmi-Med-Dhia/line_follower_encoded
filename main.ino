@@ -59,7 +59,7 @@ float full360 = 2.35;
 
 int weightsPreferingRight[8] = {-200,-20,-10,-10,10,160,180,500};
 
-int weights[8] = {-200,-20,-10,-10,10,160,180,500};
+int weights[8] = {-180,-50,-12,-10,10,12,50,180};
 
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
 int weights170[8] = {-180,-50,-12,-10,10,12,50,180};
@@ -74,7 +74,7 @@ float ki = 0;
 float ks = 0.3;
 bool blackOnWhite = true;
 float tmp;
-int baseRPM = 160;
+int baseRPM = 170;
 
 float getPIDValue(){
   int sum = 0;
@@ -314,6 +314,28 @@ void goToTargets(double targetSpeedRight, double targetSpeedLeft){
   stop();
 }
 
+int distanceToTicks(float distance){
+  return (int)( ( distance / (66.0*PI) )*202 );
+}
+
+void keepWalking(float distance){
+  int targetEncoderRight = encoderRCount + distanceToTicks(distance);
+  double targetSpeed = (targetSpeedL + targetSpeedR) / 2;
+  while (encoderRCount < targetEncoderRight ){
+    newErrorR = speedR - targetSpeed;
+    newErrorL = speedL - targetSpeed;
+    currentVoltageR -= (int)( ksS*( kpS*newErrorR + kdS*(newErrorR - previousSpeedErrorR) + kiS*(newErrorR + previousSpeedErrorR) ) );
+    currentVoltageL -= (int)( ksS*( kpS*newErrorL + kdS*(newErrorL - previousSpeedErrorL + kiS*(newErrorL+ previousSpeedErrorL) ) ) );
+    currentVoltageR = max(-255, min(255, currentVoltageR) );
+    currentVoltageL = max(-255, min(255, currentVoltageL) );
+    speedRight(currentVoltageR);
+    speedLeft(currentVoltageL);
+    previousSpeedErrorR = newErrorR;
+    previousSpeedErrorL = newErrorL;
+    delayMicroseconds(100);
+  }
+}
+
 void stop(){
   for(int i = 0;i<3;i++){
     speedRight(0);
@@ -342,32 +364,35 @@ void setup() {
   calibrate();
   delay(2000);
   digitalWrite(2, LOW);
+  /*
   setTargetL( ( 400.0 / (66.0*3.14) ) );
   setTargetR( ( 400.0 / (66.0*3.14) ) );
   goToTargets(400,400);
-  /*
+  */
   delay(3000);
-  setTargetL( ( 630.0 / (66.0*3.14) ) );
-  setTargetR( ( 630.0 / (66.0*3.14) ) );
+  setTargetL( distanceToTicks(630)/202 );
+  setTargetR( distanceToTicks(630)/202 );
   goToTargets(300,300);
   turn(-94);
-  setTargetL( ( 280.0 / (66.0*3.14) ) );
-  setTargetR( ( 280.0 / (66.0*3.14) ) );
+  setTargetL( distanceToTicks(280)/202 );
+  setTargetR( distanceToTicks(280)/202 );
   goToTargets(150,150);
   turn(-94);
-  setTargetL( ( 260.0 / (66.0*3.14) ) );
-  setTargetR( ( 260.0 / (66.0*3.14) ) );
+  setTargetL( distanceToTicks(260)/202 );
+  setTargetR( distanceToTicks(260)/202 );
   goToTargets(150,150);
   turn(94);
-  setTargetL( ( 360.0 / (66.0*3.14) ) );
-  setTargetR( ( 360.0 / (66.0*3.14) ) );
+  setTargetL( distanceToTicks(360)/202 );
+  setTargetR( distanceToTicks(360)/202 );
   goToTargets(300,300);
   turn(-94);
-  setTargetL( ( 270.0 / (66.0*3.14) ) );
-  setTargetR( ( 270.0 / (66.0*3.14) ) );
+  setTargetL( distanceToTicks(270)/202 );
+  setTargetR( distanceToTicks(270)/202 );
   goToTargets(150,150);
-  turn(46);
-  */
+  turn(40);
+  setTargetL( distanceToTicks(170)/202 );
+  setTargetR( distanceToTicks(170)/202 );
+  goToTargets(150,150);
 }
 
 void loop(){
@@ -399,6 +424,7 @@ void loop(){
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
 
+  /*
   if( !flags[0] && (encoderLCount - encoderRCount) > (-2310) ){
     baseRPM = 150;
     digitalWrite(2, HIGH);

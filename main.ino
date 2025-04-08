@@ -59,12 +59,13 @@ float full360 = 2.35;
 
 int weightsPreferingRight[8] = {-200,-20,-10,-10,10,160,180,500};
 
-int weights[8] = {-250,-60,-12,-10,10,12,60,250};
+int weights[8] = {-280,-80,-12,-10,10,12,80,280};
 
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
-int weights170[8] = {-250,-60,-12,-10,10,12,60,250};
+int weights170[8] = {-280,-80,-12,-10,10,12,80,280};
 
 bool flags[10] = { false, false, false, false, false, false, false, false, false, false};
+int flag2EncoderRCount, flag0EncoderRcount;
 
 int oldSums[8] = {0,0,0,0,0};
 int threashholds[8] = {0,0,0,0,0,0,0,0};
@@ -320,7 +321,7 @@ int distanceToTicks(float distance){
 
 void keepWalking(float distance){
   int targetEncoderRight = encoderRCount + distanceToTicks(distance);
-  double targetSpeed = (targetSpeedL + targetSpeedR) / 2;
+  double targetSpeed = max(targetSpeedL , targetSpeedR);
   while (encoderRCount < targetEncoderRight ){
     newErrorR = speedR - targetSpeed;
     newErrorL = speedL - targetSpeed;
@@ -365,7 +366,6 @@ void setup() {
   delay(2000);
   digitalWrite(2, LOW);
   
-  /* PHASE 1
   delay(3000);
   setTargetL( distanceToTicks(617)/202.0 );
   setTargetR( distanceToTicks(617)/202.0 );
@@ -383,14 +383,33 @@ void setup() {
   setTargetR( distanceToTicks(330)/202.0 );
   goToTargets(150,150);
   turn(-90);
+  setTargetL( distanceToTicks(235)/202.0 );
+  setTargetR( distanceToTicks(235)/202.0 );
+  goToTargets(150,150);
+  turn(65);
   setTargetL( distanceToTicks(250)/202.0 );
   setTargetR( distanceToTicks(250)/202.0 );
-  goToTargets(150,150);
-  turn(70);
-  setTargetL( distanceToTicks(300)/202.0 );
-  setTargetR( distanceToTicks(300)/202.0 );
   goToTargets(200,200);
-  */
+  flag0EncoderRcount = encoderRCount;
+}
+
+void resetMotionState() {
+  encoderRCount = 0;
+  encoderLCount = 0;
+  targetR = 0;
+  targetL = 0;
+  speedCorrectionR = 1.0;
+  speedCorrectionL = 1.0;
+  previousErrorL = 0;
+  previousErrorR = 0;
+  nbrOssilationsL = 0;
+  nbrOssilationsR = 0;
+  previousValueL = 0;
+  previousValueR = 0;
+  previousSpeedErrorL = 0;
+  previousSpeedErrorR = 0;
+  targetSpeedR = 100;
+  targetSpeedL = 100;
 }
 
 void loop(){
@@ -422,11 +441,12 @@ void loop(){
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
 
-  if( !flags[0] && getValue(1) && getValue(6) && !getValue(3) && !getValue(4) ){
+  if( !flags[0] && (getValue(1)||getValue(2))&&(getValue(5)||getValue(6)) && (encoderRCount - flag0EncoderRcount) > distanceToTicks(720.0) ){
     digitalWrite(2, HIGH);
+  
     weights[0] = -500;
-    weights[1] = -350;
-    weights[2] = -70;
+    weights[1] = -400;
+    weights[2] = -100;
 
     weights[5] = 10;
     weights[6] = 30;
@@ -446,17 +466,22 @@ void loop(){
     weights[0] = 0;
     weights[6] = 150;
     weights[7] = 400;
-
+    flag2EncoderRCount = encoderRCount ;
     flags[2] = true;
   }
-  if ( flags[2] && !flags[3] && getValue(2) && !getValue(3) && getValue(5) && !getValue(4) ){
+  if ( flags[2] && !flags[3] && (getValue(1) + getValue(2) +getValue(3) + getValue(4) + getValue(5) + getValue(6) >3 ) && (encoderRCount - flag2EncoderRCount) >distanceToTicks(200.0) ){
     digitalWrite(2, LOW);
-    keepWalking(230.0);
-    weights[0] = -250;
+    weights[0] = 0;
     weights[6] = 60;
-    weights[7] = 250;
-    
+    weights[7] = 0;
+    blackOnWhite = false;
+
     flags[3] = true;
+  }
+  if ( flags[3] && !flags[4] && getValue(2) && getValue(5) ){
+    digitalWrite(2, HIGH);
+    blackOnWhite = true;
+    flags[4] = true;
   }
   /*
   if( abs(encoderRCount - 202.0*( .0 / (66.0*3.14) ) ) < 20 ){

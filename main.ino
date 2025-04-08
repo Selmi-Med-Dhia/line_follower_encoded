@@ -48,7 +48,7 @@ float kdS = 0.05;
 float ksS = 0.13;
 
 int maxSpeed = 170;
-int minSpeed = 70;
+int minSpeed = 100;
 
 int rightCorrection, leftCorrection;
 int nbrOssilationsL = 0;
@@ -59,10 +59,10 @@ float full360 = 2.35;
 
 int weightsPreferingRight[8] = {-200,-20,-10,-10,10,160,180,500};
 
-int weights[8] = {-180,-50,-12,-10,10,12,50,180};
+int weights[8] = {-250,-60,-12,-10,10,12,60,250};
 
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
-int weights170[8] = {-180,-50,-12,-10,10,12,50,180};
+int weights170[8] = {-250,-60,-12,-10,10,12,60,250};
 
 bool flags[10] = { false, false, false, false, false, false, false, false, false, false};
 
@@ -74,7 +74,7 @@ float ki = 0;
 float ks = 0.3;
 bool blackOnWhite = true;
 float tmp;
-int baseRPM = 170;
+int baseRPM = 155;
 
 float getPIDValue(){
   int sum = 0;
@@ -364,35 +364,33 @@ void setup() {
   calibrate();
   delay(2000);
   digitalWrite(2, LOW);
-  /*
-  setTargetL( ( 400.0 / (66.0*3.14) ) );
-  setTargetR( ( 400.0 / (66.0*3.14) ) );
-  goToTargets(400,400);
-  */
+  
+  /* PHASE 1
   delay(3000);
-  setTargetL( distanceToTicks(630)/202 );
-  setTargetR( distanceToTicks(630)/202 );
+  setTargetL( distanceToTicks(617)/202.0 );
+  setTargetR( distanceToTicks(617)/202.0 );
   goToTargets(300,300);
-  turn(-94);
-  setTargetL( distanceToTicks(280)/202 );
-  setTargetR( distanceToTicks(280)/202 );
+  turn(-90);
+  setTargetL( distanceToTicks(265)/202.0 );
+  setTargetR( distanceToTicks(265)/202.0 );
   goToTargets(150,150);
-  turn(-94);
-  setTargetL( distanceToTicks(260)/202 );
-  setTargetR( distanceToTicks(260)/202 );
+  turn(-90);
+  setTargetL( distanceToTicks(250)/202.0 );
+  setTargetR( distanceToTicks(250)/202.0 );
   goToTargets(150,150);
-  turn(94);
-  setTargetL( distanceToTicks(360)/202 );
-  setTargetR( distanceToTicks(360)/202 );
-  goToTargets(300,300);
-  turn(-94);
-  setTargetL( distanceToTicks(270)/202 );
-  setTargetR( distanceToTicks(270)/202 );
+  turn(90);
+  setTargetL( distanceToTicks(330)/202.0 );
+  setTargetR( distanceToTicks(330)/202.0 );
   goToTargets(150,150);
-  turn(40);
-  setTargetL( distanceToTicks(170)/202 );
-  setTargetR( distanceToTicks(170)/202 );
+  turn(-90);
+  setTargetL( distanceToTicks(250)/202.0 );
+  setTargetR( distanceToTicks(250)/202.0 );
   goToTargets(150,150);
+  turn(70);
+  setTargetL( distanceToTicks(300)/202.0 );
+  setTargetR( distanceToTicks(300)/202.0 );
+  goToTargets(200,200);
+  */
 }
 
 void loop(){
@@ -424,23 +422,41 @@ void loop(){
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
 
-  /*
-  if( !flags[0] && (encoderLCount - encoderRCount) > (-2310) ){
-    baseRPM = 150;
+  if( !flags[0] && getValue(1) && getValue(6) && !getValue(3) && !getValue(4) ){
     digitalWrite(2, HIGH);
-    for(int i=0;i<8;i++){
-      weights[i] = weightsPreferingRight[7-i];
-    }
-    weights[3] = 500;
+    weights[0] = -500;
+    weights[1] = -350;
+    weights[2] = -70;
+
+    weights[5] = 10;
+    weights[6] = 30;
+    weights[7] = 100;
+
     flags[0] = true;
   }
-  /*
-  if ( flags[0] && !flags[1] && (encoderLCount - encoderRCount) < (full360/2)*202 ){
+  if ( flags[0] && !flags[1] && !getValue(0) && !getValue(1) && !getValue(2) && !getValue(3) && !getValue(4) && !getValue(5) && !getValue(6) && !getValue(7) ){
     digitalWrite(2, LOW);
     for(int i=0;i<8;i++){
-      weights[i] = weights[-i];
+      weights[i] = weights170[i];
     }
     flags[1] = true;
+  }
+  if ( flags[1] && !flags[2] && getValue(0) ){
+    digitalWrite(2, HIGH);
+    weights[0] = 0;
+    weights[6] = 150;
+    weights[7] = 400;
+
+    flags[2] = true;
+  }
+  if ( flags[2] && !flags[3] && getValue(2) && !getValue(3) && getValue(5) && !getValue(4) ){
+    digitalWrite(2, LOW);
+    keepWalking(230.0);
+    weights[0] = -250;
+    weights[6] = 60;
+    weights[7] = 250;
+    
+    flags[3] = true;
   }
   /*
   if( abs(encoderRCount - 202.0*( .0 / (66.0*3.14) ) ) < 20 ){

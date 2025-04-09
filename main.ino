@@ -64,8 +64,8 @@ int weights[8] = {-280,-80,-12,-10,10,12,80,280};
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700};
 int weights170[8] = {-280,-80,-12,-10,10,12,80,280};
 
-bool flags[10] = { false, false, false, false, false, false, false, false, false, false};
-int flag2EncoderRCount, flag0EncoderRcount;
+bool flags[16] = { false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+int flag2EncoderRCount, flag0EncoderRCount, flag4EncoderLCount, flag6EncoderRCount, flag7EncoderLCount, flag8EncoderLCount, flag10EncoderLCount, flag9EncoderLCount, flag12EncoderLCount;
 
 int oldSums[8] = {0,0,0,0,0};
 int threashholds[8] = {0,0,0,0,0,0,0,0};
@@ -366,10 +366,11 @@ void setup() {
   delay(2000);
   digitalWrite(2, LOW);
   
+  // PHASE 1
   delay(3000);
   setTargetL( distanceToTicks(617)/202.0 );
   setTargetR( distanceToTicks(617)/202.0 );
-  goToTargets(300,300);
+  goToTargets(200,200);
   turn(-90);
   setTargetL( distanceToTicks(265)/202.0 );
   setTargetR( distanceToTicks(265)/202.0 );
@@ -383,14 +384,30 @@ void setup() {
   setTargetR( distanceToTicks(330)/202.0 );
   goToTargets(150,150);
   turn(-90);
-  setTargetL( distanceToTicks(235)/202.0 );
-  setTargetR( distanceToTicks(235)/202.0 );
+  setTargetL( distanceToTicks(220)/202.0 );
+  setTargetR( distanceToTicks(220)/202.0 );
   goToTargets(150,150);
-  turn(65);
+  turn(50);
   setTargetL( distanceToTicks(250)/202.0 );
   setTargetR( distanceToTicks(250)/202.0 );
   goToTargets(200,200);
-  flag0EncoderRcount = encoderRCount;
+  
+  flag0EncoderRCount = encoderRCount;
+  /*
+  weights[0] = -350;
+  weights[1] = -150;
+  weights[6] = 50;
+  weights[7] = 100;
+  flags[5] = true;
+  flag4EncoderLCount = encoderLCount - 1315.0;
+  flags[7] = true;
+  flag7EncoderLCount = encoderLCount - 2000;
+  for(int i=0;i<8;i++){
+    weights[i] = weights300[i];
+  }
+  baseRPM = 300;
+  flags[11] = true;
+  */
 }
 
 void resetMotionState() {
@@ -413,7 +430,6 @@ void resetMotionState() {
 }
 
 void loop(){
-  //Serial.println(encoderLCount - encoderRCount);
 
   tmp = getPIDValue();
   targetSpeedR = max(-570.0f, min( 570.0f, baseRPM - tmp) );
@@ -441,16 +457,19 @@ void loop(){
   previousSpeedErrorR = newErrorR;
   previousSpeedErrorL = newErrorL;
 
-  if( !flags[0] && (getValue(1)||getValue(2))&&(getValue(5)||getValue(6)) && (encoderRCount - flag0EncoderRcount) > distanceToTicks(720.0) ){
+  // PHASE 2
+  if( !flags[0] && (getValue(1)||getValue(2))&&(getValue(5)||getValue(6)) && (encoderRCount - flag0EncoderRCount) > distanceToTicks(720.0) ){
     digitalWrite(2, HIGH);
   
     weights[0] = -500;
     weights[1] = -400;
     weights[2] = -100;
-
-    weights[5] = 10;
-    weights[6] = 30;
+    weights[5] = 0;
+    weights[6] = 20;
     weights[7] = 100;
+    /*stop();
+    resetMotionState();
+    turn(45.0);*/
 
     flags[0] = true;
   }
@@ -478,28 +497,124 @@ void loop(){
 
     flags[3] = true;
   }
-  if ( flags[3] && !flags[4] && getValue(2) && getValue(5) ){
+  if ( flags[3] && !flags[4] && (getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) >3 ) ){
     digitalWrite(2, HIGH);
     blackOnWhite = true;
+
+    flag4EncoderLCount = encoderLCount;
     flags[4] = true;
   }
-  /*
-  if( abs(encoderRCount - 202.0*( .0 / (66.0*3.14) ) ) < 20 ){
-    digitalWrite(2, HIGH);
-    baseRPM = 170;
-    for(int i=0;i<8; i++){
-      weights[i] = weights170[i];
-      Serial.println("haw tbaddel");
-    }
-  }
-  /*
-  if( abs(encoderRCount - 202.0*( 2350.0 / (66.0*3.14) ) ) < 20 ){
+  if ( flags[4] && !flags[5] && (encoderLCount - flag4EncoderLCount) > distanceToTicks(200.0) ){
     digitalWrite(2, LOW);
-    baseRPM = 300;
-    for(int i=0;i<8; i++){
-      weights[i] = weights300[i];
-      Serial.println("haw tbaddel");
-    }
+    weights[0] = -350;
+    weights[1] = -150;
+    weights[6] = 50;
+    weights[7] = 100;
+
+    flags[5] = true;
   }
-  */
+  // PHASE 3
+  
+  if ( flags[5] && !flags[6] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderLCount - flag4EncoderLCount) > distanceToTicks(3000.0)){
+    digitalWrite(2, HIGH);
+    resetMotionState();
+    turn(-150);
+    //setTargetL(distanceToTicks(200.0) /202.0 );
+    //setTargetR(distanceToTicks(200.0) /202.0);
+    //goToTargets(150, 150);
+
+    flag6EncoderRCount = encoderRCount;
+
+    flags[6] = true;
+  }
+  if ( flags[6] && !flags[7] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderRCount - flag6EncoderRCount) > distanceToTicks(200.0)){
+    digitalWrite(2, LOW);
+    resetMotionState();
+    turn(-90);
+    flag7EncoderLCount = encoderLCount;
+
+    flags[7] = true;
+  }
+  // PHASE 4
+  
+  if ( flags[7] && !flags[8] && (encoderLCount - flag7EncoderLCount) > distanceToTicks(2200.0)){
+    digitalWrite(2, HIGH);
+    weights[0] = -100;
+    weights[1] = -60;
+    weights[6] = 100;
+    weights[7] = 300;
+    flag8EncoderLCount = encoderLCount;
+
+    flags[8] = true;
+  }
+  if ( flags[8] && !flags[9] && (encoderLCount - flag8EncoderLCount) > distanceToTicks(500.0)){
+    digitalWrite(2, LOW);
+    weights[0] = -300;
+    weights[1] = -100;
+    weights[6] = 60;
+    weights[7] = 100;
+    flag9EncoderLCount = encoderLCount;
+
+    flags[9] = true;
+  }
+  if ( flags[9] && !flags[10] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0  && (encoderLCount - flag9EncoderLCount) > distanceToTicks(400.0)){
+    digitalWrite(2, HIGH);
+    resetMotionState();
+    turn(180);
+    flag10EncoderLCount = encoderLCount;
+
+    flags[10] = true;
+  }
+  if ( flags[10] && !flags[11] && (encoderLCount - flag10EncoderLCount) > distanceToTicks(1100.0)){
+    digitalWrite(2, LOW);
+    for(int i=0;i<8;i++){
+      weights[i] = weights300[i];
+    }
+    baseRPM = 300;
+    flags[11] = true;
+  }
+  if ( flags[11] && !flags[12] && (getValue(2) + getValue(3) + getValue(4) + getValue(5) ) == 4){
+    digitalWrite(2, HIGH);
+    keepWalking(55.0);
+    stop();
+    resetMotionState();
+    delay(200);
+    turn(-35);
+    setTargetL(distanceToTicks(40.0)/202.0);
+    setTargetR(distanceToTicks(40.0)/202.0);
+    goToTargets(150, 150);
+    weights[6] = 25;
+    weights[7] = 30;
+    flag12EncoderLCount = encoderLCount;
+
+    flags[12] = true;
+  }
+  if ( flags[12] && !flags[13] && (encoderLCount - flag12EncoderLCount) > distanceToTicks(560.0)){
+    digitalWrite(2, LOW);
+    weights[6] = 80;
+    weights[7] = 280;
+    weights[0] = -25;
+    weights[1] = -30;
+
+    flags[13] = true;
+  }
+
+  if ( flags[13] && !flags[14] && (encoderLCount - flag12EncoderLCount) > distanceToTicks(1160.0)){
+    digitalWrite(2, HIGH);
+    weights[6] = 80;
+    weights[7] = 280;
+    weights[0] = -280;
+    weights[1] = -80;
+
+    flags[14] = true;
+  }
+
+  if ( flags[14] && !flags[15] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7)) == 8){
+    digitalWrite(2, LOW);
+    keepWalking(35);
+    stop();
+    while(1){};
+    flags[15] = true;
+  }
 }
+

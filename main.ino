@@ -375,38 +375,47 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoderLA), encoderLISR, CHANGE);
   
   encoderRCount = 0;
-  encoderLCount = 0;
-  digitalWrite(2, HIGH); // onboard LED
+  encoderLCount = 0; // onboard LED
   calibrate();
-  delay(2000);
+  while(!digitalRead(pushButton)){
+    delayMicroseconds(10);
+  }
+  
+  digitalWrite(2, HIGH);
+  delay(250);
   digitalWrite(2, LOW);
   
-  // PHASE 1 (consists of orthogonal segments, the robot will be line-followin blind here, just following instructions)
-  delay(3000);
+  // PHASE 1 (consists of orthogonal segments, the robot will be line-following blind here, just following instructions)
+  resetMotionState();
   setTargetL( distanceToTicks(617)/202.0 );
   setTargetR( distanceToTicks(617)/202.0 );
   goToTargets(200,200);
+  resetMotionState();
   turn(-90);
   setTargetL( distanceToTicks(265)/202.0 );
   setTargetR( distanceToTicks(265)/202.0 );
   goToTargets(150,150);
-  turn(-90);
-  setTargetL( distanceToTicks(250)/202.0 );
-  setTargetR( distanceToTicks(250)/202.0 );
-  goToTargets(150,150);
-  turn(90);
-  setTargetL( distanceToTicks(330)/202.0 );
-  setTargetR( distanceToTicks(330)/202.0 );
-  goToTargets(150,150);
-  turn(-90);
+  resetMotionState();
+  turn(-86);
   setTargetL( distanceToTicks(220)/202.0 );
   setTargetR( distanceToTicks(220)/202.0 );
   goToTargets(150,150);
-  turn(50);
+  resetMotionState();
+  turn(91);
+  setTargetL( distanceToTicks(350)/202.0 );
+  setTargetR( distanceToTicks(350)/202.0 );
+  goToTargets(150,150);
+  resetMotionState();
+  turn(-88);
+  setTargetL( distanceToTicks(210)/202.0 );
+  setTargetR( distanceToTicks(210)/202.0 );
+  goToTargets(150,150);
+  resetMotionState();
+  turn(57);
   setTargetL( distanceToTicks(250)/202.0 );
   setTargetR( distanceToTicks(250)/202.0 );
   goToTargets(200,200);
-  
+
   flag0EncoderRCount = encoderRCount;
   /*
   weights[0] = -350;
@@ -425,7 +434,7 @@ void setup() {
   */
 }
 
-void resetMotionState() { // reinitialisation of all variables
+void resetMotionState() { // reinitialisation of all PID variables
   encoderRCount = 0;
   encoderLCount = 0;
   targetR = 0;
@@ -531,13 +540,13 @@ void loop(){
   if ( flags[5] && !flags[6] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderLCount - flag4EncoderLCount) > distanceToTicks(3000.0)){
     digitalWrite(2, HIGH);
     resetMotionState();
-    turn(-150);
+    turn(-120);
 
     flag6EncoderRCount = encoderRCount;
 
     flags[6] = true;
   }
-  if ( flags[6] && !flags[7] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderRCount - flag6EncoderRCount) > distanceToTicks(200.0)){
+  if ( flags[6] && !flags[7] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderRCount - flag6EncoderRCount) > distanceToTicks(800.0)){
     digitalWrite(2, LOW);
     resetMotionState();
     turn(-90);
@@ -591,11 +600,15 @@ void loop(){
     resetMotionState();
     delay(200);
     turn(-35);
+    resetMotionState();
+    
     setTargetL(distanceToTicks(40.0)/202.0);
     setTargetR(distanceToTicks(40.0)/202.0);
     goToTargets(150, 150);
-    weights[6] = 25;
-    weights[7] = 30;
+
+    weights[5] = 20;
+    weights[6] = 20;
+    weights[7] = 20;
     flag12EncoderLCount = encoderLCount;
 
     flags[12] = true;
@@ -604,8 +617,9 @@ void loop(){
     digitalWrite(2, LOW);
     weights[6] = 80;
     weights[7] = 280;
-    weights[0] = -25;
-    weights[1] = -30;
+    weights[0] = -20;
+    weights[1] = -20;
+    weights[2] = -20;
 
     flags[13] = true;
   }

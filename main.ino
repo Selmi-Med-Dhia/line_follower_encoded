@@ -62,6 +62,7 @@ float full360 = 2.35; // number of rotations needed for each wheel to make a 360
 int weights[8] = {-280,-80,-12,-10,10,12,80,280}; // current weights of sensors
 
 int weights300[8] = {-700,-50,-20,-15,15,20,50,700}; // weights tuned for 300 RPM speed
+int weights350[8] = {-700,-80,-40,-25,25,40,80,700}; // weights tuned for 350 RPM speed
 int weights170[8] = {-280,-80,-12,-10,10,12,80,280}; // weights tuned for 170 RPM speed
 
 bool flags[16] = { false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}; // array to store states of flags
@@ -170,8 +171,8 @@ void IRAM_ATTR encoderLISR() { // same for its right equivilant
 }
 
 void calibrate(){
-  setTargetR(full360*3); // planning on making 3 360s to calibrate
-  setTargetL(-full360*3);
+  setTargetR(full360*3.17); // planning on making 3 360s to calibrate
+  setTargetL(-full360*3.17);
   int min[8] = {4000,4000,4000,4000,4000,4000,4000,4000}; // max value that can be returned by the sensors is 4096 to the ESP, so 4000 will serve for finding the minimal value
   int reading; // dummy variable to store the current sensor's reading
   rightCorrection = getEncoderCorrectionR();
@@ -188,10 +189,20 @@ void calibrate(){
         threashholds[i] = reading;
       }
     }
+    if (abs(encoderRCount - targetR) > 20){ // does not correct speed when the robot is near its target, so not to worsen position control
+      speedCorrectionR = max ( 0.2 , speedCorrectionR + (250 - speedR )*0.0004 ); // correcting for Speed, 0.0004 is just Kp in this case, Ki and Kd are 0
+    }else{
+      speedCorrectionR = 1;
+    }
+    if (abs(encoderLCount - targetL) > 20){
+      speedCorrectionL = max ( 0.2 , speedCorrectionL + (250 - abs(speedL) )*0.0004 );
+    }else{
+      speedCorrectionL = 1;
+    }
 
     // correcting PWM signal of each motor to reach target smouthly
-    speedRight(rightCorrection);
-    speedLeft(leftCorrection);
+    speedRight(speedCorrectionR*rightCorrection);
+    speedLeft(speedCorrectionL*leftCorrection);
     delayMicroseconds(1000); // small delay for stability
     // getting ready for the next iteration
     rightCorrection = getEncoderCorrectionR();
@@ -387,33 +398,33 @@ void setup() {
   
   // PHASE 1 (consists of orthogonal segments, the robot will be line-following blind here, just following instructions)
   resetMotionState();
-  setTargetL( distanceToTicks(617)/202.0 );
-  setTargetR( distanceToTicks(617)/202.0 );
+  setTargetL( distanceToTicks(600)/202.0 );
+  setTargetR( distanceToTicks(600)/202.0 );
   goToTargets(200,200);
   resetMotionState();
   turn(-90);
-  setTargetL( distanceToTicks(265)/202.0 );
-  setTargetR( distanceToTicks(265)/202.0 );
+  setTargetL( distanceToTicks(285)/202.0 );
+  setTargetR( distanceToTicks(285)/202.0 );
   goToTargets(150,150);
   resetMotionState();
-  turn(-86);
-  setTargetL( distanceToTicks(220)/202.0 );
-  setTargetR( distanceToTicks(220)/202.0 );
+  turn(-90);
+  setTargetL( distanceToTicks(285)/202.0 );
+  setTargetR( distanceToTicks(285)/202.0 );
   goToTargets(150,150);
   resetMotionState();
-  turn(91);
-  setTargetL( distanceToTicks(350)/202.0 );
-  setTargetR( distanceToTicks(350)/202.0 );
+  turn(89);
+  setTargetL( distanceToTicks(335)/202.0 );
+  setTargetR( distanceToTicks(335)/202.0 );
   goToTargets(150,150);
   resetMotionState();
   turn(-88);
-  setTargetL( distanceToTicks(210)/202.0 );
-  setTargetR( distanceToTicks(210)/202.0 );
+  setTargetL( distanceToTicks(230)/202.0 );
+  setTargetR( distanceToTicks(230)/202.0 );
   goToTargets(150,150);
   resetMotionState();
-  turn(57);
-  setTargetL( distanceToTicks(250)/202.0 );
-  setTargetR( distanceToTicks(250)/202.0 );
+  turn(60);
+  setTargetL( distanceToTicks(210)/202.0 );
+  setTargetR( distanceToTicks(210)/202.0 );
   goToTargets(200,200);
 
   flag0EncoderRCount = encoderRCount;
@@ -528,8 +539,8 @@ void loop(){
   }
   if ( flags[4] && !flags[5] && (encoderLCount - flag4EncoderLCount) > distanceToTicks(200.0) ){
     digitalWrite(2, LOW);
-    weights[0] = -350;
-    weights[1] = -150;
+    weights[0] = -300;
+    weights[1] = -100;
     weights[6] = 50;
     weights[7] = 100;
 
@@ -537,39 +548,40 @@ void loop(){
   }
   // PHASE 3
   
-  if ( flags[5] && !flags[6] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderLCount - flag4EncoderLCount) > distanceToTicks(3000.0)){
+  if ( flags[5] && !flags[6] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderLCount - flag4EncoderLCount) > distanceToTicks(4000.0)){
     digitalWrite(2, HIGH);
     resetMotionState();
-    turn(-120);
+    turn(-100);
+    baseRPM = 170;
 
     flag6EncoderRCount = encoderRCount;
 
     flags[6] = true;
   }
-  if ( flags[6] && !flags[7] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderRCount - flag6EncoderRCount) > distanceToTicks(800.0)){
+  if ( flags[6] && !flags[7] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0 && (encoderRCount - flag6EncoderRCount) > distanceToTicks(1300.0)){
     digitalWrite(2, LOW);
     resetMotionState();
-    turn(-90);
+    turn(-130);
     flag7EncoderLCount = encoderLCount;
 
     flags[7] = true;
   }
   // PHASE 4
   
-  if ( flags[7] && !flags[8] && (encoderLCount - flag7EncoderLCount) > distanceToTicks(2200.0)){
+  if ( flags[7] && !flags[8] && (encoderLCount - flag7EncoderLCount) > distanceToTicks(2100.0)){
     digitalWrite(2, HIGH);
     weights[0] = -100;
     weights[1] = -60;
-    weights[6] = 100;
-    weights[7] = 300;
+    weights[6] = 150;
+    weights[7] = 350;
     flag8EncoderLCount = encoderLCount;
 
     flags[8] = true;
   }
   if ( flags[8] && !flags[9] && (encoderLCount - flag8EncoderLCount) > distanceToTicks(500.0)){
     digitalWrite(2, LOW);
-    weights[0] = -300;
-    weights[1] = -100;
+    weights[0] = -350;
+    weights[1] = -150;
     weights[6] = 60;
     weights[7] = 100;
     flag9EncoderLCount = encoderLCount;
@@ -579,12 +591,15 @@ void loop(){
   if ( flags[9] && !flags[10] && (getValue(0) + getValue(1) + getValue(2) + getValue(3) + getValue(4) + getValue(5) + getValue(6) + getValue(7) ) == 0  && (encoderLCount - flag9EncoderLCount) > distanceToTicks(400.0)){
     digitalWrite(2, HIGH);
     resetMotionState();
-    turn(180);
+    turn(190);
+    baseRPM = 155;
+    weights[2] = -80;
+
     flag10EncoderLCount = encoderLCount;
 
     flags[10] = true;
   }
-  if ( flags[10] && !flags[11] && (encoderLCount - flag10EncoderLCount) > distanceToTicks(1100.0)){
+  if ( flags[10] && !flags[11] && (encoderLCount - flag10EncoderLCount) > distanceToTicks(1000.0)){
     digitalWrite(2, LOW);
     for(int i=0;i<8;i++){
       weights[i] = weights300[i];
